@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-from typing import Literal, Optional
+from typing import Optional
 
 
 class EmbeddingMapper(nn.Module):
@@ -28,7 +28,7 @@ class EmbeddingMapper(nn.Module):
         self.downsample = downsample
         self.net = nn.Sequential(
             nn.Linear(input_dim * downsample, hidden_dim),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Linear(hidden_dim, output_dim),
         )
 
@@ -69,11 +69,9 @@ class JarvisConfig(PretrainedConfig):
 class JarvisModel(PreTrainedModel):
     config_class = JarvisConfig
 
-    def __init__(self, config: JarvisConfig, tokenizer: PreTrainedTokenizerBase):
+    def __init__(self, config: JarvisConfig):
         super().__init__(config)
-        self.language_model = AutoModelForCausalLM.from_pretrained(
-            config.language_model
-        )
+        self.language_model = AutoModelForCausalLM.from_pretrained(config.language_model)
         self.seamless_model = SeamlessM4TModel.from_pretrained(config.seamless_model)
         self.speech_mapper = EmbeddingMapper(
             self.seamless_model.config.hidden_size,
@@ -81,59 +79,50 @@ class JarvisModel(PreTrainedModel):
             hidden_dim=config.speech_mapper_hidden_dim,
             downsample=config.speech_mapper_downsample,
         )
-        tokenizer.add_tokens(
-            ["<|BEGIN_SPEECH|>", "<|END_SPEECH|>"], special_tokens=True
-        )
-        self.language_model.resize_token_embeddings(len(tokenizer))
+
+    def resize_token_embeddings(self, new_num_tokens):
+        self.language_model.resize_token_embeddings(new_num_tokens)
 
     def forward(
         self,
         input_ids: torch.Tensor,
-        input_embeddings: torch.Tensor,
-        speech_embeddings: torch.Tensor,
+        speech_input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
+        speech_attention_mask: Optional[torch.Tensor] = None,
         labels: Optional[torch.Tensor] = None,
-        phase: Literal["one", "two"] = "one",
     ):
-        if input_ids is None and input_embeddings is None:
-            raise ValueError("Either input_ids or input_embeddings must be provided")
-
-        elif input_ids is not None and input_embeddings is not None:
-            raise ValueError(
-                "Only one of input_ids or input_embeddings can be provided"
-            )
-
-        elif input_ids is not None:
-            input_embeddings = self.language_model.get_input_embeddings()(input_ids)
-
+        speech_embeddings = self.seamless_model.text_encoder(
+            input_ids=speech_input_ids,
+            attention_mask=speech_attention_mask
+        ).last_hidden_state
+        
         mapped_embeddings = self.speech_mapper(speech_embeddings)
-
-        if labels is not None:
-            label_embeddings = self.language_model.get_input_embeddings()(labels)
-            combined_embeds = torch.cat(
-                (input_embeddings, mapped_embeddings, label_embeddings), dim=1
-            )
-
-            outputs = self.language_model(
-                inputs_embeds=combined_embeds,
-                attention_mask=attention_mask,
-            )
-
-            shifted_logits = outputs.logits[:, :-1, :]
-            shifted_labels = batch["labels"][:, 1:]
-
-            loss = F.cross_entropy(
-                shifted_logits[:, -shifted_labels.size(1) :, :].transpose(1, 2),
-                shifted_labels,
-            )
-
-            return {**outputs, "loss": loss}
-
+        
+        input_embeddings = self.language_model.get_input_embeddings()(input_ids)
+        
         combined_embeds = torch.cat((input_embeddings, mapped_embeddings), dim=1)
-
-        return self.language_model(
+        
+        if attention_mask is not None and speech_attention_mask is not None:
+            combined_attention_mask = torch.cat((attention_mask, speech_attention_mask), dim=1)
+        else:
+            combined_attention_mask = None
+        
+        outputs = self.language_model(
             inputs_embeds=combined_embeds,
+            attention_mask=combined_attention_mask,
         )
+        
+        if labels is not None:
+            shifted_logits = outputs.logits[:, :-1, :]
+            shifted_labels = labels[:, 1:]
+            loss = F.cross_entropy(
+                shifted_logits.transpose(1, 2),
+                shifted_labels,
+                ignore_index=-100, 
+            )
+            outputs.loss = loss
+        
+        return outputs
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
