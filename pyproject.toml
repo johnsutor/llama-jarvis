@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llama-jarvis"
+dynamic = ["version"]
+description = 'Train a speech-to-speech model using your own language model'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "John Sutor", email = "johnsutor3@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://github.com/johnsutor/llama-jarvis#readme"
+Issues = "https://github.com/johnsutor/llama-jarvis/issues"
+Source = "https://github.com/johnsutor/llama-jarvis"
+
+[tool.hatch.version]
+path = "src/llama_jarvis/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/llama_jarvis tests}"
+
+[tool.coverage.run]
+source_pkgs = ["llama_jarvis", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/llama_jarvis/__about__.py",
+]
+
+[tool.coverage.paths]
+llama_jarvis = ["src/llama_jarvis", "*/llama-jarvis/src/llama_jarvis"]
+tests = ["tests", "*/llama-jarvis/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
