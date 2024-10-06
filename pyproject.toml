@@ -9,12 +9,15 @@ description = 'Train a speech-to-speech model using your own language model'
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
-keywords = []
+keywords = ["speech-to-speech", "llama", "transformers", "llm"]
 authors = [
   { name = "John Sutor", email = "johnsutor3@gmail.com" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
@@ -24,15 +27,32 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "torch",
+  "transformers",
+]
 
 [project.urls]
 Documentation = "https://github.com/johnsutor/llama-jarvis#readme"
 Issues = "https://github.com/johnsutor/llama-jarvis/issues"
 Source = "https://github.com/johnsutor/llama-jarvis"
 
+[project.optional-dependencies]
+dev = [
+  "hatch",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "ruff",
+]
+
 [tool.hatch.version]
 path = "src/llama_jarvis/__about__.py"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]
 
 [tool.hatch.envs.types]
 extra-dependencies = [

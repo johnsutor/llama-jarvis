@@ -1,8 +1,40 @@
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Code within this file is derived from both the HuggingFace Transformers library and the Llama-Omni project.
+#
+# The original license for the Hugging Face Transformers library is included below.
+# Copyright 2023 The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# The original license for the Llama-Omni project is included below.
+# Copyright 2023 The Llama-Omni team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -32,6 +64,15 @@ logger = logging.getLogger(__name__)
 
 
 class JarvisSeamlessM4TModel(SeamlessM4TModel):
+    """
+    This subclass of `SeamlessM4TModel` adds a method to generate translated speech from text with utilities
+    to get the target vocoder token ids.
+
+    Args:
+        config (`PretrainedConfig`):
+            The configuration for the model.
+    """
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -46,7 +87,11 @@ class JarvisSeamlessM4TModel(SeamlessM4TModel):
         generate_speech: Optional[bool] = False,
         generate_target_ids: Optional[bool] = False,
         **kwargs,
-    ) -> Union[torch.Tensor, JarvisSeamlessM4TGenerationOutput]:
+    ) -> Union[
+        Tuple[torch.Tensor, torch.Tensor],
+        torch.Tensor,
+        JarvisSeamlessM4TGenerationOutput,
+    ]:
         """
         Generates translated token ids and/or translated audio waveforms.
 
@@ -360,6 +405,24 @@ class SpeechToEmbeddingMapper(nn.Module):
 class JarvisConfig(PretrainedConfig):
     """
     This class defines the configuration for the Jarvis model.
+
+    Args:
+        language_model (`str`):
+            The name or path of the pretrained language model.
+        seamless_model (`str`):
+            The name or path of the pretrained SeamlessM4T model.
+        s2e_mapper_downsample (`int`, *optional*, defaults to 5):
+            The factor by which to downsample the sequence length in the speech to embedding mapper.
+        s2e_mapper_hidden_dim (`int`, *optional*, defaults to 1024):
+            The dimensionality of the hidden layer in the speech to embedding mapper.
+        e2s_upsample (`int`, *optional*, defaults to 25):
+            The factor by which to upsample the sequence length in the embedding to speech mapper.
+        e2s_num_layers (`int`, *optional*, defaults to 2):
+            The number of layers in the embedding to speech mapper.
+        e2s_linear_dim (`int`, *optional*, defaults to 11008):
+            The dimensionality of the intermediate layer in the embedding to speech mapper.
+        e2s_num_heads (`int`, *optional*, defaults to 32):
+            The number of attention heads in the embedding to speech mapper.
     """
 
     model_type = "jarvis"
@@ -395,6 +458,12 @@ class JarvisConfig(PretrainedConfig):
 class JarvisProcessor(ProcessorMixin):
     """
     This class processes the inputs for the Jarvis model.
+
+    Args:
+        tokenizer (`Union[PreTrainedTokenizerBase, str]`):
+            The name or instance of the pretrained tokenizer.
+        seamless_processor (`Union[SeamlessM4TProcessor, str]`):
+            The name or instance of the pretrained SeamlessM4T processor.
     """
 
     def __init__(
@@ -415,10 +484,10 @@ class JarvisProcessor(ProcessorMixin):
 
     def __call__(
         self,
-        instruction: List[str] = None,
-        text: List[str] = None,
-        speech: List[str] = None,
-        label: List[str] = None,
+        instruction: Optional[List[str]] = None,
+        text: Optional[List[str]] = None,
+        speech: Optional[List[str]] = None,
+        label: Optional[List[str]] = None,
         src_lang: str = "eng",
         **kwargs,
     ):
@@ -471,6 +540,14 @@ class JarvisProcessor(ProcessorMixin):
 
 
 class JarvisModel(PreTrainedModel):
+    """
+    This class defines the Jarvis model, which combines a language model with a SeamlessM4T model.
+
+    Args:
+        config (`JarvisConfig`):
+            The configuration for the model.
+    """
+
     config_class = JarvisConfig
 
     def __init__(self, config: JarvisConfig):
