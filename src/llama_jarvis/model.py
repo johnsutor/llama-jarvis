@@ -113,7 +113,7 @@ class JarvisSeamlessM4TModel(SeamlessM4TModel):
         if (
             input_ids is None
             and input_features is None
-            and kwargs.get("inputs_embeds", None) is None
+            and kwargs.get("inputs_embeds") is None
         ):
             raise ValueError(
                 "`input_ids`,`input_features` and `inputs_embeds` are all empty. Make sure at least one of them is not."
